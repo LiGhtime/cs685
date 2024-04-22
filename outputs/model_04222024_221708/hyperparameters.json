@@ -1,0 +1,19 @@
+{
+    "max_seq_length": 4096,
+    "dtype": null,
+    "load_in_4bit": true,
+    "model_name": "unsloth/gemma-2b-it-bnb-4bit",
+    "r": 8,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 2,
+    "warmup_steps": 15,
+    "num_train_epochs": 1,
+    "learning_rate": 0.0001,
+    "fp16": true,
+    "bf16": false,
+    "logging_steps": 1,
+    "optim": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler_type": "cosine",
+    "seed": 3407
+}

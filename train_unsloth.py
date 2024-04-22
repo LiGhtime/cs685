@@ -1,5 +1,7 @@
-from unsloth import FastLanguageModel
+import json
+
 import torch
+from unsloth import FastLanguageModel
 
 max_seq_length = 4096 # 8192 | Choose any! We auto support RoPE Scaling internally!
 dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
@@ -122,7 +124,7 @@ hyper_params = {
     "gradient_accumulation_steps": 2,
     "warmup_steps": 15,
     "num_train_epochs": 1,
-    "learning_rate": 2e-4,
+    "learning_rate": 1e-4,
     "fp16": not torch.cuda.is_bf16_supported(),
     "bf16": torch.cuda.is_bf16_supported(),
     "logging_steps": 1,
@@ -131,10 +133,10 @@ hyper_params = {
     "lr_scheduler_type": "cosine",
     "seed": 3407,
     }
+
 with open(model_path + "/hyperparameters.json", "w") as file:
     json.dump(hyper_params, file, indent=4)
         
 # save trainer.state.log_history to model_path
-import json
 with open(model_path + "/trainer_state_log_history.json", "w") as file:
     json.dump(trainer.state.log_history, file, indent=4)
