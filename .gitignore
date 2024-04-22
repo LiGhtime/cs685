@@ -1,1 +1,3 @@
 outputs/*checkpoint*
+data/gemma_train
+data/gemma_eval

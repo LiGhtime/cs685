@@ -40,22 +40,11 @@ model = FastLanguageModel.get_peft_model(
     loftq_config = None, # And LoftQ
 )
 
-# data preparation:
-import json
-    
-# read data
-with open('./data/gemma_training_wo_description.json', 'r') as file:
-    gemma_train_wo_description = json.load(file)
-with open('./data/gemma_training_w_description.json', 'r') as file:
-    gemma_train_w_description = json.load(file)
-    
-# construct dataset
-from datasets import Dataset
+# read huggingface dataset from local
+from datasets import load_from_disk
 
-gemma_train_two_tasks = {key: gemma_train_wo_description[key] + gemma_train_w_description[key] for key in gemma_train_wo_description}
-
-dataset_two_tasks = Dataset.from_dict(gemma_train_two_tasks)
-dataset_two_tasks = dataset_two_tasks.train_test_split(test_size=0.005)
+dataset_train = load_from_disk('./data/gemma_train')
+dataset_eval = load_from_disk('./data/gemma_eval')
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
 
@@ -70,8 +59,8 @@ def formatting_prompts_func(examples):
     return { "text" : texts, }
 pass
 
-train_dataset = dataset_two_tasks["train"].map(formatting_prompts_func, batched = True,)
-test_dataset = dataset_two_tasks["test"].map(formatting_prompts_func, batched = True,)
+train_dataset = dataset_train.map(formatting_prompts_func, batched = True,)
+# test_dataset = dataset_eval.map(formatting_prompts_func, batched = True,)
 
 # training
 from trl import SFTTrainer
@@ -81,7 +70,7 @@ trainer = SFTTrainer(
     model = model,
     tokenizer = tokenizer,
     train_dataset = train_dataset,
-    eval_dataset = test_dataset,
+    # eval_dataset = test_dataset,
     dataset_text_field = "text",
     max_seq_length = max_seq_length,
     dataset_num_proc = 2,
@@ -101,11 +90,11 @@ trainer = SFTTrainer(
         lr_scheduler_type = "cosine",
         seed = 3407,
         output_dir = "outputs",
-        fp16_full_eval = True,
-        per_device_eval_batch_size = 1,
-        eval_accumulation_steps = 1,
-        evaluation_strategy = "steps",
-        eval_steps = 100,
+        # fp16_full_eval = True,
+        # per_device_eval_batch_size = 1,
+        # eval_accumulation_steps = 1,
+        # evaluation_strategy = "steps", # epoch
+        # eval_steps = 100,
     ),
 )
 
@@ -122,6 +111,29 @@ model_path = "outputs/" + model_name
 model.save_pretrained(model_path) # Local saving
 # model.push_to_hub("your_name/lora_model", token = "...") # Online saving
 
+# save hyperparameters as a json dict to model_path
+hyper_params = {
+    "max_seq_length": max_seq_length,
+    "dtype": dtype,
+    "load_in_4bit": load_in_4bit,
+    "model_name": "unsloth/gemma-2b-it-bnb-4bit",
+    "r": 8,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 2,
+    "warmup_steps": 15,
+    "num_train_epochs": 1,
+    "learning_rate": 2e-4,
+    "fp16": not torch.cuda.is_bf16_supported(),
+    "bf16": torch.cuda.is_bf16_supported(),
+    "logging_steps": 1,
+    "optim": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler_type": "cosine",
+    "seed": 3407,
+    }
+with open(model_path + "/hyperparameters.json", "w") as file:
+    json.dump(hyper_params, file, indent=4)
+        
 # save trainer.state.log_history to model_path
 import json
 with open(model_path + "/trainer_state_log_history.json", "w") as file:
