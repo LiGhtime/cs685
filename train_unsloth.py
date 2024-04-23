@@ -82,8 +82,8 @@ pass
 train_dataset = dataset_train.map(formatting_prompts_func, batched = True,)
 # test_dataset = dataset_eval.map(formatting_prompts_func, batched = True,)
 
-# take the first 100 of the dataset for a quick testing
-train_dataset = train_dataset.select(range(100))
+# # take the first 100 of the dataset for a quick testing
+# train_dataset = train_dataset.select(range(100))
 
 # training
 from trl import SFTTrainer
