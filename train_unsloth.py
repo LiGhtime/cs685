@@ -1,52 +1,70 @@
 import json
+from datetime import datetime
 
 import torch
+from datasets import load_from_disk
 from unsloth import FastLanguageModel
 
-max_seq_length = 4096 # 8192 | Choose any! We auto support RoPE Scaling internally!
-dtype = None # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
-load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+hyper_params = {
+    # Model hyperparameters
+    "max_seq_length": 4096, # 8192 | Choose any! We auto support RoPE Scaling internally!
+    "dtype": None, # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
+    "load_in_4bit": True, # Use 4bit quantization to reduce memory usage. Can be False.,
+    "model_name": "unsloth/gemma-2b-it-bnb-4bit",
+    "r": 8, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128,
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj",
+                      "gate_proj", "up_proj", "down_proj",], # Add more to target more modules
+    "lora_alpha": 16,
+    "lora_dropout": 0, # Supports any, but = 0 is optimized
+    "lora_bias": "none", # Supports any, but = "none" is optimized
+    "lora_use_gradient_checkpointing": "unsloth", # True or "unsloth" for very long context
+    "lora_random_state": 3407,
+    "lora_use_rslora": False, # We support rank stabilized LoRA
+    "lora_loftq_config": None, # And LoftQ
+    # Training hyperparameters
+    "per_device_train_batch_size": 2,
+    "gradient_accumulation_steps": 1,
+    "warmup_steps": 15, # will replace num_warmup_steps in lr_scheduler_kwargs
+    "num_train_epochs": 1,
+    "learning_rate": 1e-4,
+    "fp16": not torch.cuda.is_bf16_supported(),
+    "bf16": torch.cuda.is_bf16_supported(),
+    "logging_steps": 1,
+    "optim": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler_type": "cosine_with_restarts",
+    "lr_scheduler_kwargs": {"num_cycles": 3}, # "num_warmup_steps" and "num_training_steps" will be added automatically
+    "seed": 3407,
+}
 
-# 4bit pre quantized models we support for 4x faster downloading + no OOMs.
-fourbit_models = [
-    "unsloth/mistral-7b-bnb-4bit",
-    "unsloth/mistral-7b-instruct-v0.2-bnb-4bit",
-    "unsloth/llama-2-7b-bnb-4bit",
-    "unsloth/gemma-7b-bnb-4bit",
-    "unsloth/gemma-7b-it-bnb-4bit", # Instruct version of Gemma 7b
-    "unsloth/gemma-2b-bnb-4bit",
-    "unsloth/gemma-2b-it-bnb-4bit", # Instruct version of Gemma 2b
-] # More models at https://huggingface.co/unsloth
-
+# load model and tokenizer
+# More models at https://huggingface.co/unsloth
 model, tokenizer= FastLanguageModel.from_pretrained(
-    model_name = "unsloth/gemma-2b-it-bnb-4bit", # Choose ANY! eg teknium/OpenHermes-2.5-Mistral-7B
-    max_seq_length = max_seq_length,
-    dtype = dtype,
-    load_in_4bit = load_in_4bit,
+    model_name = hyper_params["model_name"], # Choose ANY! eg teknium/OpenHermes-2.5-Mistral-7B
+    max_seq_length = hyper_params["max_seq_length"],
+    dtype = hyper_params["dtype"],
+    load_in_4bit = hyper_params["load_in_4bit"],
     # token = "hf_...", # use one if using gated models like meta-llama/Llama-2-7b-hf
 )
 
 # add lora to model
 model = FastLanguageModel.get_peft_model(
     model,
-    r = 8, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
-    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
-                      "gate_proj", "up_proj", "down_proj",],
-    lora_alpha = 16,
-    lora_dropout = 0, # Supports any, but = 0 is optimized
-    bias = "none",    # Supports any, but = "none" is optimized
+    r = hyper_params['r'],
+    target_modules = hyper_params['target_modules'],
+    lora_alpha = hyper_params['lora_alpha'],
+    lora_dropout = hyper_params['lora_dropout'],
+    bias = hyper_params['lora_bias'],
     # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
-    use_gradient_checkpointing = "unsloth", # True or "unsloth" for very long context
-    random_state = 3407,
-    use_rslora = False,  # We support rank stabilized LoRA
-    loftq_config = None, # And LoftQ
+    use_gradient_checkpointing = hyper_params['lora_use_gradient_checkpointing'],
+    random_state = hyper_params['lora_random_state'],
+    use_rslora = hyper_params['lora_use_rslora'], # We support rank stabilized LoRA
+    loftq_config = hyper_params['lora_loftq_config'], # And LoftQ
 )
 
 # read huggingface dataset from local
-from datasets import load_from_disk
-
 dataset_train = load_from_disk('./data/gemma_train')
-dataset_eval = load_from_disk('./data/gemma_eval')
+# dataset_eval = load_from_disk('./data/gemma_eval')
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
 
@@ -64,6 +82,9 @@ pass
 train_dataset = dataset_train.map(formatting_prompts_func, batched = True,)
 # test_dataset = dataset_eval.map(formatting_prompts_func, batched = True,)
 
+# take the first 100 of the dataset for a quick testing
+train_dataset = train_dataset.select(range(100))
+
 # training
 from trl import SFTTrainer
 from transformers import TrainingArguments
@@ -74,23 +95,24 @@ trainer = SFTTrainer(
     train_dataset = train_dataset,
     # eval_dataset = test_dataset,
     dataset_text_field = "text",
-    max_seq_length = max_seq_length,
+    max_seq_length = hyper_params['max_seq_length'],
     dataset_num_proc = 2,
     packing = False, # Can make training 5x faster for short sequences.
     args = TrainingArguments(
-        per_device_train_batch_size = 1,
-        gradient_accumulation_steps = 2,
-        warmup_steps = 15,
-        num_train_epochs = 1,
+        per_device_train_batch_size = hyper_params['per_device_train_batch_size'],
+        gradient_accumulation_steps = hyper_params['gradient_accumulation_steps'],
+        warmup_steps = hyper_params['warmup_steps'],
+        num_train_epochs = hyper_params['num_train_epochs'],
         # max_steps = 100,
-        learning_rate = 2e-4,
-        fp16 = not torch.cuda.is_bf16_supported(),
-        bf16 = torch.cuda.is_bf16_supported(),
-        logging_steps = 1,
-        optim = "adamw_8bit",
-        weight_decay = 0.01,
-        lr_scheduler_type = "cosine",
-        seed = 3407,
+        learning_rate = hyper_params['learning_rate'],
+        fp16 = hyper_params['fp16'],
+        bf16 = hyper_params['bf16'],
+        logging_steps = hyper_params['logging_steps'],
+        optim = hyper_params['optim'],
+        weight_decay = hyper_params['weight_decay'],
+        lr_scheduler_type = hyper_params['lr_scheduler_type'],
+        lr_scheduler_kwargs = hyper_params['lr_scheduler_kwargs'],
+        seed = hyper_params['seed'],
         output_dir = "outputs",
         # fp16_full_eval = True,
         # per_device_eval_batch_size = 1,
@@ -104,7 +126,6 @@ trainer_stats = trainer.train()
 
 # saving model and loss history
 # get current datetime
-from datetime import datetime
 now = datetime.now()
 
 # name the model
@@ -114,26 +135,6 @@ model.save_pretrained(model_path) # Local saving
 # model.push_to_hub("your_name/lora_model", token = "...") # Online saving
 
 # save hyperparameters as a json dict to model_path
-hyper_params = {
-    "max_seq_length": max_seq_length,
-    "dtype": dtype,
-    "load_in_4bit": load_in_4bit,
-    "model_name": "unsloth/gemma-2b-it-bnb-4bit",
-    "r": 8,
-    "per_device_train_batch_size": 1,
-    "gradient_accumulation_steps": 2,
-    "warmup_steps": 15,
-    "num_train_epochs": 1,
-    "learning_rate": 1e-4,
-    "fp16": not torch.cuda.is_bf16_supported(),
-    "bf16": torch.cuda.is_bf16_supported(),
-    "logging_steps": 1,
-    "optim": "adamw_8bit",
-    "weight_decay": 0.01,
-    "lr_scheduler_type": "cosine",
-    "seed": 3407,
-    }
-
 with open(model_path + "/hyperparameters.json", "w") as file:
     json.dump(hyper_params, file, indent=4)
         
