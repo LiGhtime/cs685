@@ -292,7 +292,7 @@ class ConstraintLogitsProcessor(LogitsProcessor):
         self.eos_token_id = eos_token_id
         self.bos_token_id = bos_token_id
         
-        print("Creating trie...")
+        # print("Creating trie...")
         # print("bos_token_id: ", bos_token_id)
         # print("eos_token_id: ", eos_token_id)
         
@@ -302,7 +302,7 @@ class ConstraintLogitsProcessor(LogitsProcessor):
             
             # tokenize movie title
             inputs = tokenizer(movie_title, return_tensors="pt")
-             # get the input ids
+            # get the input ids
             input_ids = inputs['input_ids'].tolist()
             
             # append end of sentence id at the end of the input_ids
@@ -323,7 +323,7 @@ class ConstraintLogitsProcessor(LogitsProcessor):
         else:
             new_token_input_ids = input_ids_list[-new_tokens_length:]
             new_token_input_ids.insert(0, self.bos_token_id)
-        print("new_token_input_ids: ", new_token_input_ids)
+        # print("new_token_input_ids: ", new_token_input_ids)
         scores_processed = torch.full_like(scores, fill_value=-math.inf, device=scores.device)
         vocab_tensor = torch.arange(scores.shape[-1], device=scores.device)
         # traverse the constraint trie. If the current token is not in the trie, set the score to -inf
@@ -350,8 +350,10 @@ class ConstraintLogitsProcessor(LogitsProcessor):
         for token in current_node.children:
             # if the token is in the children of the current node, set the score to the original score
             token = torch.tensor(token, device=scores.device)     
-            original_scores = scores[:, token]                   
+            original_scores = scores[:, token]
+            # print("original_scores: ", original_scores)                   
             in_children_token_mask = torch.isin(vocab_tensor, token)
+            # print("in_children_token_mask: ", in_children_token_mask)
             scores_processed = torch.where(in_children_token_mask, original_scores, scores_processed)
 
         return scores_processed
