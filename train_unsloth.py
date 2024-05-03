@@ -22,11 +22,13 @@ hyper_params = {
     "lora_use_rslora": False, # We support rank stabilized LoRA
     "lora_loftq_config": None, # And LoftQ
     # Training hyperparameters
+    "dataset_train_path": "./data/gemma_chat_train",
+    "dataset_eval_path": "./data/gemma_chat_dev",
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 1,
-    "warmup_steps": 15, # will replace num_warmup_steps in lr_scheduler_kwargs
-    "num_train_epochs": 1,
-    "learning_rate": 1e-4,
+    "warmup_steps": 25, # will replace num_warmup_steps in lr_scheduler_kwargs
+    "num_train_epochs": 2,
+    "learning_rate": 2e-4,
     "fp16": not torch.cuda.is_bf16_supported(),
     "bf16": torch.cuda.is_bf16_supported(),
     "logging_steps": 1,
@@ -63,10 +65,12 @@ model = FastLanguageModel.get_peft_model(
 )
 
 # read huggingface dataset from local
-dataset_train = load_from_disk('./data/gemma_train')
-# dataset_eval = load_from_disk('./data/gemma_eval')
+dataset_train = load_from_disk(hyper_params['dataset_train_path'])
+# dataset_eval = load_from_disk(hyper_params['dataset_eval_path'])
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
+
+prompt_template = prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}"
 
 def formatting_prompts_func(examples):
     inputs = examples["input"]
@@ -74,7 +78,9 @@ def formatting_prompts_func(examples):
     texts = []
 
     for input, output in zip(inputs, outputs):
-        text = "### Input:\n{inputs_holder}\n\n### Response:{outputs_holder}".format(inputs_holder= input, outputs_holder= output) + EOS_TOKEN
+        # text = "### Input:\n{inputs_holder}\n\n### Response:{outputs_holder}".format(inputs_holder= input, outputs_holder= output) + EOS_TOKEN
+        # gemma chat template:
+        text = prompt_template.format(input, output) + EOS_TOKEN
         texts.append(text)
     return { "text" : texts, }
 pass
