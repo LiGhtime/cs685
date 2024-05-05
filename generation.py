@@ -62,6 +62,7 @@ custom_generation_config = GenerationConfig(
     max_new_tokens=96,
     use_cache=True,
     temperature=1,
+    early_stopping=True,
     # num_beam_groups=num_beams_parameter,
     # diversity_penalty=0.3,
 )
