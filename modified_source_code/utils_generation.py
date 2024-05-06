@@ -3510,6 +3510,7 @@ class GenerationMixin:
         )
 
         batch_size = len(beam_scorer._beam_hyps)
+        # print("beam_scorer._beam_hyps: ", beam_scorer._beam_hyps)
         num_beams = beam_scorer.num_beams
 
         batch_beam_size, cur_len = input_ids.shape
@@ -3607,6 +3608,7 @@ class GenerationMixin:
             next_tokens = next_tokens % vocab_size
 
             # stateless
+            print("beam_scorer.process get called.")
             beam_outputs = beam_scorer.process(
                 input_ids,
                 next_token_scores,
@@ -3642,6 +3644,7 @@ class GenerationMixin:
             if beam_scorer.is_done or all(stopping_criteria(input_ids, scores)):
                 this_peer_finished = True
 
+        print("finalize get called.")
         sequence_outputs = beam_scorer.finalize(
             input_ids,
             beam_scores,
