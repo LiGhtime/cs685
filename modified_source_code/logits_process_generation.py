@@ -324,7 +324,7 @@ class ConstraintLogitsProcessor(LogitsProcessor):
         new_tokens_length = input_ids.shape[-1] - self.prompt_length_to_skip
         # print("new_tokens_length: ", new_tokens_length)
         num_beams = scores.shape[0]
-        input_ids_list = input_ids.tolist()[0]
+        input_ids_list = input_ids.tolist() # FIXED: changed from input_ids.tolist()[0] to input_ids.tolist()
         new_token_input_ids_list = [[] for i in range(num_beams)]
         # print("new_token_input_ids_list: ", new_token_input_ids_list)
         # print("size of new_token_input_ids_list: ", len(new_token_input_ids_list))
@@ -332,7 +332,7 @@ class ConstraintLogitsProcessor(LogitsProcessor):
             if new_tokens_length == 0:
                 new_token_input_ids_list[i].append(self.bos_token_id)
             else:
-                new_token_input_ids_list[i] = input_ids_list[-new_tokens_length:]
+                new_token_input_ids_list[i] = input_ids_list[i][-new_tokens_length:] # FIXED: changed from input_ids_list to input_ids_list[i]
                 new_token_input_ids_list[i].insert(0, self.bos_token_id)
         # print("new_token_input_ids_list: ", new_token_input_ids_list)
         scores_processed = torch.full_like(scores, fill_value=-math.inf, device=scores.device)
