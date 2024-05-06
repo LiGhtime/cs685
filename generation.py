@@ -1,7 +1,8 @@
 import json
 
-# asins_small.json to be used for meta data matching
-json_file_asins = './data/meta_asins.json'
+# asins json to be used for meta data matching
+json_file_asins = './data/asins_small.json'
+# json_file_asins = './data/meta_asins.json'
 with open(json_file_asins, "r") as file:
     asin_dict = json.load(file)
 
