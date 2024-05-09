@@ -1551,7 +1551,10 @@ class HammingDiversityLogitsProcessor(LogitsProcessor):
             scores_processed[batch_idx * group_size : (batch_idx + 1) * group_size] -= (
                 self._diversity_penalty * token_frequency
             )
-
+        
+        # # customized check statement
+        # if (scores_processed == -torch.inf).all():
+        #     scores_processed = scores # before penalize
         return scores_processed
 
 

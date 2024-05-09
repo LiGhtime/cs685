@@ -3544,6 +3544,7 @@ class GenerationMixin:
         while self._has_unfinished_sequences(this_peer_finished, synced_gpus, device=input_ids.device):
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
 
+            # LLM inference
             outputs = self(
                 **model_inputs,
                 return_dict=True,
@@ -3598,7 +3599,12 @@ class GenerationMixin:
 
             probs = nn.functional.softmax(next_token_scores, dim=-1)
 
+            # if torch.where(probs[0] != 0)[0].shape[0] >= 2 * num_beams:
+            #     next_tokens = torch.multinomial(probs, num_samples=2 * num_beams)
+            # else:
+            #     next_tokens = torch.multinomial(probs, num_samples=2 * num_beams, replacement=True)
             next_tokens = torch.multinomial(probs, num_samples=2 * num_beams)
+            # next_tokens = torch.multinomial(probs, num_samples=2 * (num_beams-len(self.beam_hps())
             next_token_scores = torch.gather(next_token_scores, -1, next_tokens)
 
             next_token_scores, _indices = torch.sort(next_token_scores, descending=True, dim=1)
@@ -3608,7 +3614,7 @@ class GenerationMixin:
             next_tokens = next_tokens % vocab_size
 
             # stateless
-            print("beam_scorer.process get called.")
+            # print("beam_scorer.process get called.")
             beam_outputs = beam_scorer.process(
                 input_ids,
                 next_token_scores,
@@ -3644,7 +3650,7 @@ class GenerationMixin:
             if beam_scorer.is_done or all(stopping_criteria(input_ids, scores)):
                 this_peer_finished = True
 
-        print("finalize get called.")
+        # print("finalize get called.")
         sequence_outputs = beam_scorer.finalize(
             input_ids,
             beam_scores,
@@ -3979,6 +3985,7 @@ class GenerationMixin:
 
                 # Sample 1 + len(eos_token_id) next tokens for each beam so we have at least 1 non eos token per beam.
                 n_eos_tokens = len(eos_token_id) if eos_token_id else 0
+
                 next_token_scores, next_tokens = torch.topk(
                     next_token_scores, max(2, 1 + n_eos_tokens) * group_size, dim=1, largest=True, sorted=True
                 )
