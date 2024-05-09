@@ -290,12 +290,16 @@ class BeamSearchScorer(BeamScorer):
                 else:
                     # TODO
                     # add next predicted token since it is not eos_token
-                    if next_score != -torch.inf:
-                        next_beam_scores[batch_idx, beam_idx] = next_score
-                        next_beam_tokens[batch_idx, beam_idx] = next_token
-                        next_beam_indices[batch_idx, beam_idx] = batch_beam_idx
-                        beam_idx += 1
-                    else:
+                    # if next_score != -torch.inf:
+                    #     next_beam_scores[batch_idx, beam_idx] = next_score
+                    #     next_beam_tokens[batch_idx, beam_idx] = next_token
+                    #     next_beam_indices[batch_idx, beam_idx] = batch_beam_idx
+                    #     beam_idx += 1
+                    # else:
+                    next_beam_scores[batch_idx, beam_idx] = next_score
+                    next_beam_tokens[batch_idx, beam_idx] = next_token
+                    next_beam_indices[batch_idx, beam_idx] = batch_beam_idx
+                    beam_idx += 1
                         
 
                 # once the beam for next step is full, don't add more tokens to it.
