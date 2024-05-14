@@ -242,6 +242,7 @@ class BeamSearchScorer(BeamScorer):
 
         device = input_ids.device
         next_beam_scores = torch.zeros((batch_size, self.group_size), dtype=next_scores.dtype, device=device)
+        # next_beam_scores.fill_(float('-inf'))
         next_beam_tokens = torch.zeros((batch_size, self.group_size), dtype=next_tokens.dtype, device=device)
         next_beam_indices = torch.zeros((batch_size, self.group_size), dtype=next_indices.dtype, device=device)
 
@@ -286,7 +287,8 @@ class BeamSearchScorer(BeamScorer):
                         beam_indices=beam_index,
                         generated_len=cur_len - decoder_prompt_len,
                     )
-                    # beam_idx += 1
+                    # if using customized constraints, do the following
+                    beam_idx += 1
                 else:
                     # TODO
                     # add next predicted token since it is not eos_token

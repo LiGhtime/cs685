@@ -74,3 +74,4 @@ inputs = tokenizer(
 ], return_tensors = "pt").to("cuda")
 
 outputs = model.generate(**inputs, generation_config=custom_generation_config)
+print(outputs)

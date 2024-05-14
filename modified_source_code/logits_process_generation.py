@@ -296,6 +296,7 @@ class ConstraintLogitsProcessor(LogitsProcessor):
         self.prompt_length_to_skip = prompt_length_to_skip
         self.eos_token_id = eos_token_id
         self.bos_token_id = bos_token_id
+        self.pad_node = TrieNode(0)
         
         print("Creating trie...")
         # print("bos_token_id: ", bos_token_id)
@@ -351,8 +352,11 @@ class ConstraintLogitsProcessor(LogitsProcessor):
         current_node_list = []
         for i in range(num_beams):
             print(f"new_token_input_ids_list[{i}]: {new_token_input_ids_list[i]}")
-            print(f"new_token_input_ids_list[{i}] size: {len(new_token_input_ids_list[i])}")
-            current_node_list.append(self.trie.search_children(new_token_input_ids_list[i]))
+            # print(f"new_token_input_ids_list[{i}] size: {len(new_token_input_ids_list[i])}")
+            try:
+                current_node_list.append(self.trie.search_children(new_token_input_ids_list[i]))
+            except ValueError:
+                current_node_list.append(self.pad_node)
         # print("current_node: ", current_node.node_value)
         # print("current_node.children: ", current_node.children)
         

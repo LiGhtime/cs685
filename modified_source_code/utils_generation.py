@@ -3937,7 +3937,7 @@ class GenerationMixin:
                 **model_inputs,
                 return_dict=True,
                 output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
+                output_hidden_states=output_hidden_states, # TODO: set this flag to be true, to get the embeddings.
             )
 
             if synced_gpus and this_peer_finished:
