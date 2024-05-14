@@ -1,8 +1,8 @@
 outputs/*checkpoint*
 data/gemma_train
 data/gemma_eval
-data/gemma_chat_train
-data/gemma_chat_eval
+data/gemma_chat_train*
+data/gemma_chat_eval*
 data/gemma_chat_train_fixed
 data/gemma_chat_eval_fixed
 data/meta_Movies_and_TV*

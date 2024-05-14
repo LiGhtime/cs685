@@ -23,8 +23,8 @@ hyper_params = {
     "lora_use_rslora": False, # We support rank stabilized LoRA
     "lora_loftq_config": None, # And LoftQ
     # Training hyperparameters
-    "encoding_title_to_desc_task_path": "./data/encoding_title_to_desc_task",
-    "encoding_desc_to_title_task_path": "./data/encoding_desc_to_title_task",
+    "encoding_title_to_desc_task_path": "./data/encoding_title_to_desc_task_fixed_empty_string_filter",
+    "encoding_desc_to_title_task_path": "./data/encoding_desc_to_title_task_fixed_empty_string_filter",
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 1,
     "warmup_steps": 25, # will replace num_warmup_steps in lr_scheduler_kwargs
@@ -85,9 +85,9 @@ def formatting_prompts_func(examples):
 train_dataset = encoding_title_to_desc_task.map(formatting_prompts_func, batched = True,)
 # train_dataset = encoding_desc_to_title_task.map(formatting_prompts_func, batched = True,)
 
-# take samples from the dataset
-train_dataset = train_dataset.shuffle(seed=hyper_params["seed"])
-train_dataset = train_dataset.select(range(15000))
+# # take samples from the dataset
+# train_dataset = train_dataset.shuffle(seed=hyper_params["seed"])
+# train_dataset = train_dataset.select(range(15000))
 
 # training
 from trl import SFTTrainer
