@@ -1,0 +1,40 @@
+{
+    "max_seq_length": 4096,
+    "dtype": null,
+    "load_in_4bit": true,
+    "model_name": "unsloth/gemma-2b-it-bnb-4bit",
+    "r": 8,
+    "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+    ],
+    "lora_alpha": 16,
+    "lora_dropout": 0,
+    "lora_bias": "none",
+    "lora_use_gradient_checkpointing": "unsloth",
+    "lora_random_state": 3407,
+    "lora_use_rslora": false,
+    "lora_loftq_config": null,
+    "encoding_title_to_desc_task_path": "./data/encoding_title_to_desc_task",
+    "encoding_desc_to_title_task_path": "./data/encoding_desc_to_title_task",
+    "per_device_train_batch_size": 2,
+    "gradient_accumulation_steps": 1,
+    "warmup_steps": 25,
+    "num_train_epochs": 2,
+    "learning_rate": 0.0002,
+    "fp16": true,
+    "bf16": false,
+    "logging_steps": 1,
+    "optim": "adamw_8bit",
+    "weight_decay": 0.01,
+    "lr_scheduler_type": "cosine_with_restarts",
+    "lr_scheduler_kwargs": {
+        "num_cycles": 3
+    },
+    "seed": 3407
+}
