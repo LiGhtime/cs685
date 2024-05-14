@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import torch
 from datasets import load_from_disk
 from unsloth import FastLanguageModel
@@ -22,8 +23,8 @@ hyper_params = {
     "lora_use_rslora": False, # We support rank stabilized LoRA
     "lora_loftq_config": None, # And LoftQ
     # Training hyperparameters
-    "dataset_train_path": "./data/gemma_chat_train",
-    "dataset_eval_path": "./data/gemma_chat_dev",
+    "encoding_title_to_desc_task_path": "./data/encoding_title_to_desc_task",
+    "encoding_desc_to_title_task_path": "./data/encoding_desc_to_title_task",
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 1,
     "warmup_steps": 25, # will replace num_warmup_steps in lr_scheduler_kwargs
@@ -40,13 +41,11 @@ hyper_params = {
 }
 
 # load model and tokenizer
-# More models at https://huggingface.co/unsloth
 model, tokenizer= FastLanguageModel.from_pretrained(
     model_name = hyper_params["model_name"], # Choose ANY! eg teknium/OpenHermes-2.5-Mistral-7B
     max_seq_length = hyper_params["max_seq_length"],
     dtype = hyper_params["dtype"],
     load_in_4bit = hyper_params["load_in_4bit"],
-    # token = "hf_...", # use one if using gated models like meta-llama/Llama-2-7b-hf
 )
 
 # add lora to model
@@ -65,8 +64,7 @@ model = FastLanguageModel.get_peft_model(
 )
 
 # read huggingface dataset from local
-dataset_train = load_from_disk(hyper_params['dataset_train_path'])
-# dataset_eval = load_from_disk(hyper_params['dataset_eval_path'])
+encoding_title_to_desc_task = load_from_disk(hyper_params["encoding_title_to_desc_task_path"])
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
 
@@ -84,11 +82,12 @@ def formatting_prompts_func(examples):
         texts.append(text)
     return { "text" : texts, }
 
-train_dataset = dataset_train.map(formatting_prompts_func, batched = True,)
-# test_dataset = dataset_eval.map(formatting_prompts_func, batched = True,)
+train_dataset = encoding_title_to_desc_task.map(formatting_prompts_func, batched = True,)
+# train_dataset = encoding_desc_to_title_task.map(formatting_prompts_func, batched = True,)
 
-# # take the first 100 of the dataset for a quick testing
-# train_dataset = train_dataset.select(range(100))
+# take samples from the dataset
+train_dataset = train_dataset.shuffle(seed=hyper_params["seed"])
+train_dataset = train_dataset.select(range(15000))
 
 # training
 from trl import SFTTrainer
@@ -134,7 +133,7 @@ trainer_stats = trainer.train()
 now = datetime.now()
 
 # name the model
-model_name = "model_" + now.strftime("%m%d%Y_%H%M%S")
+model_name = "e_t2d_model_" + now.strftime("%m%d%Y_%H%M%S")
 model_path = "outputs/" + model_name
 model.save_pretrained(model_path) # Local saving
 # model.push_to_hub("your_name/lora_model", token = "...") # Online saving
@@ -146,3 +145,43 @@ with open(model_path + "/hyperparameters.json", "w") as file:
 # save trainer.state.log_history to model_path
 with open(model_path + "/trainer_state_log_history.json", "w") as file:
     json.dump(trainer.state.log_history, file, indent=4)
+
+# plot trainer.state.log_history, plot training loss and evaluation loss
+# Extracting training and eval loss data
+train_losses = []
+eval_losses = []
+steps = []
+
+for entry in trainer.state.log_history:
+    if 'loss' in entry:
+        train_losses.append((entry['step'], entry['loss']))
+    if 'eval_loss' in entry:
+        eval_losses.append((entry['step'], entry['eval_loss']))
+    if 'train_loss' in entry:
+        train_losses.append((entry['step'], entry['train_loss']))
+
+# Sorting values by steps to align the data points correctly
+train_losses.sort(key=lambda x: x[0])
+eval_losses.sort(key=lambda x: x[0])
+
+# Plotting
+plt.figure(figsize=(10, 6))
+# Unzipping for plotting
+if eval_losses != []:
+    train_steps, train_loss_values = zip(*train_losses)
+    eval_steps, eval_loss_values = zip(*eval_losses)
+    plt.plot(train_steps, train_loss_values, label='Training Loss', marker='o')
+    plt.plot(eval_steps, eval_loss_values, label='Evaluation Loss', marker='x')
+else:
+    train_steps, train_loss_values = zip(*train_losses)
+    plt.plot(train_steps, train_loss_values, label='Training Loss', marker='o')
+
+plt.xlabel('Steps')
+plt.ylabel('Loss')
+plt.title('Loss Over Steps')
+plt.legend()
+plt.grid(True)
+# plt.show()
+
+# save the plot
+plt.savefig(model_path + "/loss_plot.png")
