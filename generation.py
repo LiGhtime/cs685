@@ -47,7 +47,7 @@ inputs = tokenizer(
     prompt_template.format(input, ""),    
 ], return_tensors = "pt").to("cuda")
 
-num_beams_parameter = 6
+num_beams_parameter = 5
 custom_generation_config = GenerationConfig(
     bos_token_id=tokenizer.bos_token_id,
     eos_token_id=tokenizer.eos_token_id,
@@ -64,7 +64,7 @@ custom_generation_config = GenerationConfig(
     max_new_tokens=35,
     use_cache=True,
     temperature=1,
-    num_beam_groups=3, # In this generation mode, `num_beams` should be divisible by `num_beam_groups`. `diversity_penalty` is not 0.0 or `num_beam_groups` is not 1, triggering group beam search. 
+    num_beam_groups=5, # In this generation mode, `num_beams` should be divisible by `num_beam_groups`. `diversity_penalty` is not 0.0 or `num_beam_groups` is not 1, triggering group beam search. 
     diversity_penalty=0.5,
 )
 
