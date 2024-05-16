@@ -14,14 +14,18 @@ hyper_params = {
     "dtype": None, # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
     "load_in_4bit": True, # Use 4bit quantization to reduce memory usage. Can be False.
     "json_file_asins": './data/asins_small.json', # None or './data/asins_small.json' or './data/meta_asins.json'
-    "eval_dataset_path": "./data/gemma_chat_eval_fixed_empty_string_filter",
+    # "eval_dataset_path": "./data/gemma_chat_eval_no_user_intention_fixed_empty_string_filter",
+    # "eval_dataset_path": "./data/gemma_chat_eval_w_desc_task_fixed_empty_string_filter",
+    "eval_dataset_path": "./data/gemma_chat_eval_wo_desc_task_fixed_empty_string_filter",
     "constraint_flag": True,
-    # "model_name": "unsloth/gemma-2b-it-bnb-4bit",
+    # "model_name": "unsloth/gem|ma-2b-it-bnb-4bit",
     # "model_name": "outputs/checkpoint-1000",
     # "model_name": "outputs/model_04242024_090830/",
     # "model_name": "outputs/model_04242024_150533",
     # "model_name": "outputs/model_04252024_034847",
-    "model_name": "outputs/model_05152024_105402", # fixed empty description issue in training data
+    # "model_name": "outputs/model_05162024_022532", # fixed empty description issue in training data, no user intention two task model
+    # "model_name": "outputs/model_05162024_053537", # gemma_chat_train_w_desc_task_fixed_empty_string_filter
+    "model_name": "outputs/model_05162024_080541", # gemma_chat_train_wo_desc_task_fixed_empty_string_filter
     "early_stopping": True,
     "num_beams_parameter": 5,
     "max_new_tokens": 70,
@@ -33,7 +37,6 @@ hyper_params = {
 
 if hyper_params["json_file_asins"] is not None:
     # asins_small.json to be used for meta data matching
-    # json_file_asins = 
     json_file_asins = hyper_params["json_file_asins"]
     with open(json_file_asins, "r") as file:
         asin_dict = json.load(file)
