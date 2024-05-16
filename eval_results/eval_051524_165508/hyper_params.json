@@ -1,0 +1,15 @@
+{
+    "max_seq_length": 4096,
+    "dtype": null,
+    "load_in_4bit": true,
+    "json_file_asins": "./data/asins_small.json",
+    "eval_dataset_path": "./data/gemma_chat_eval_fixed_empty_string_filter",
+    "model_name": "unsloth/gemma-2b-it-bnb-4bit",
+    "early_stopping": true,
+    "num_beams_parameter": 5,
+    "max_new_tokens": 70,
+    "temperature": 1,
+    "use_cache": true,
+    "num_beam_groups": 5,
+    "diversity_penalty": 0.9
+}

@@ -13,27 +13,32 @@ hyper_params = {
     "max_seq_length": 4096, # 8192 | Choose any! We auto support RoPE Scaling internally!
     "dtype": None, # None for auto detection. Float16 for Tesla T4, V100, Bfloat16 for Ampere+
     "load_in_4bit": True, # Use 4bit quantization to reduce memory usage. Can be False.
-    "json_file_asins": './data/asins_small.json', # './data/asins_small.json' or './data/meta_asins.json'
-    "eval_dataset_path": "./data/gemma_chat_eval",
+    "json_file_asins": './data/asins_small.json', # None or './data/asins_small.json' or './data/meta_asins.json'
+    "eval_dataset_path": "./data/gemma_chat_eval_fixed_empty_string_filter",
+    "constraint_flag": True,
     # "model_name": "unsloth/gemma-2b-it-bnb-4bit",
     # "model_name": "outputs/checkpoint-1000",
     # "model_name": "outputs/model_04242024_090830/",
     # "model_name": "outputs/model_04242024_150533",
-    "model_name": "outputs/model_04252024_034847",
+    # "model_name": "outputs/model_04252024_034847",
+    "model_name": "outputs/model_05152024_105402", # fixed empty description issue in training data
     "early_stopping": True,
     "num_beams_parameter": 5,
-    "max_new_tokens": 35,
+    "max_new_tokens": 70,
     "temperature": 1,
     "use_cache": True,
     "num_beam_groups": 5,
     "diversity_penalty": 0.9,
 }
 
-# asins_small.json to be used for meta data matching
-# json_file_asins = 
-json_file_asins = hyper_params["json_file_asins"]
-with open(json_file_asins, "r") as file:
-    asin_dict = json.load(file)
+if hyper_params["json_file_asins"] is not None:
+    # asins_small.json to be used for meta data matching
+    # json_file_asins = 
+    json_file_asins = hyper_params["json_file_asins"]
+    with open(json_file_asins, "r") as file:
+        asin_dict = json.load(file)
+else:
+    asin_dict = None
     
 # len(asin_dict) # 748224 for the full meta bag # 434236 after filtering out the ones with no title
     
@@ -98,7 +103,11 @@ for index_i in tqdm(range(dataset_eval.num_rows)):
         prompt_template.format(input_seq, ""),    
     ], return_tensors = "pt").to("cuda")
 
-    outputs = model.generate(**inputs, generation_config=custom_generation_config)
+    # if use constraint, load the constraint model
+    if hyper_params["constraint_flag"]:
+        outputs = model.generate(**inputs, generation_config=custom_generation_config)
+    else:
+        outputs = model.generate(**inputs, max_new_tokens=hyper_params["max_new_tokens"], use_cache=True, return_dict_in_generate=True)
     
     # init a list to store the ranked generated sequences
     ranked_sequences = []
@@ -107,11 +116,13 @@ for index_i in tqdm(range(dataset_eval.num_rows)):
         sequence = "".join(tokenizer.batch_decode(outputs['sequences'][i], skip_special_tokens=True))
         sequence = sequence.split("model\n")[1]        
         
-        if hyper_params["num_beams_parameter"] == 1: score = outputs['scores'][-1][0][1] # this is for num_beam = 1
-        else: score = outputs['sequences_scores'][i]
-        
-        # transform score from tensor to float
-        score = score.item()
+        if hyper_params["constraint_flag"]:
+            if hyper_params["num_beams_parameter"] == 1: score = outputs['scores'][-1][0][1] # this is for num_beam = 1
+            else: score = outputs['sequences_scores'][i]
+            # transform score from tensor to float
+            score = score.item()
+        else:
+            score = None
         
         # add the generated sequence and its score to the list
         ranked_sequences.append({

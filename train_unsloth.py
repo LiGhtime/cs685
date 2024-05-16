@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import torch
 from datasets import load_from_disk
 from unsloth import FastLanguageModel
@@ -22,8 +23,8 @@ hyper_params = {
     "lora_use_rslora": False, # We support rank stabilized LoRA
     "lora_loftq_config": None, # And LoftQ
     # Training hyperparameters
-    "dataset_train_path": "./data/gemma_chat_train_fixed_empty_string_filter",
-    "dataset_eval_path": "./data/gemma_chat_dev_fixed_empty_string_filter",
+    "dataset_train_path": "./data/gemma_chat_train_no_user_intention_fixed_empty_string_filter",
+    "dataset_eval_path": "./data/gemma_chat_eval_no_user_intention_fixed_empty_string_filter",
     "per_device_train_batch_size": 2,
     "gradient_accumulation_steps": 1,
     "warmup_steps": 25, # will replace num_warmup_steps in lr_scheduler_kwargs
@@ -146,3 +147,43 @@ with open(model_path + "/hyperparameters.json", "w") as file:
 # save trainer.state.log_history to model_path
 with open(model_path + "/trainer_state_log_history.json", "w") as file:
     json.dump(trainer.state.log_history, file, indent=4)
+
+# plot trainer.state.log_history, plot training loss and evaluation loss
+# Extracting training and eval loss data
+train_losses = []
+eval_losses = []
+steps = []
+
+for entry in trainer.state.log_history:
+    if 'loss' in entry:
+        train_losses.append((entry['step'], entry['loss']))
+    if 'eval_loss' in entry:
+        eval_losses.append((entry['step'], entry['eval_loss']))
+    if 'train_loss' in entry:
+        train_losses.append((entry['step'], entry['train_loss']))
+
+# Sorting values by steps to align the data points correctly
+train_losses.sort(key=lambda x: x[0])
+eval_losses.sort(key=lambda x: x[0])
+
+# Plotting
+plt.figure(figsize=(10, 6))
+# Unzipping for plotting
+if eval_losses != []:
+    train_steps, train_loss_values = zip(*train_losses)
+    eval_steps, eval_loss_values = zip(*eval_losses)
+    plt.plot(train_steps, train_loss_values, label='Training Loss', marker='o')
+    plt.plot(eval_steps, eval_loss_values, label='Evaluation Loss', marker='x')
+else:
+    train_steps, train_loss_values = zip(*train_losses)
+    plt.plot(train_steps, train_loss_values, label='Training Loss', marker='o')
+
+plt.xlabel('Steps')
+plt.ylabel('Loss')
+plt.title('Loss Over Steps')
+plt.legend()
+plt.grid(True)
+# plt.show()
+
+# save the plot
+plt.savefig(model_path + "/loss_plot.png")
