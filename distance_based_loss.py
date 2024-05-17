@@ -24,9 +24,9 @@ tokenized_train_dataset = load_from_disk('./data/gemma_chat_train_predict_emb_ta
 tokenized_eval_dataset = load_from_disk('./data/gemma_chat_eval_predict_emb_task_fixed_empty_string_filter_tokenized')
 # tokenized_test_dataset = load_from_disk('./data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter_tokenized')
 
-# take first 10 of train, first 5 of eval, first 5 of test for quick testing
-tokenized_train_dataset = tokenized_train_dataset.select(range(12))
-tokenized_eval_dataset = tokenized_eval_dataset.select(range(4))
+# # take first 10 of train, first 5 of eval, first 5 of test for quick testing
+# tokenized_train_dataset = tokenized_train_dataset.select(range(12))
+# tokenized_eval_dataset = tokenized_eval_dataset.select(range(4))
 
 hyper_params = {
     # Model hyperparameters
@@ -119,7 +119,6 @@ def embedding_distance_loss_with_l2(predicted_emb, ground_truth_emb, model, l2_l
     cosine_sim = F.cosine_similarity(predicted_emb, ground_truth_emb, dim=-1)
     # converting similarity to a loss (minimizing negative similarity)
     cosine_sim_loss = 1 - cosine_sim.mean()
-    # L2 regularization
     l2_reg = sum(param.pow(2.0).sum() for param in model.parameters())
     # total loss
     loss = cosine_sim_loss + l2_lambda * l2_reg
@@ -200,7 +199,6 @@ model_save_folder = f"outputs" + f"/distance_based_loss_checkpoint_{current_time
 os.makedirs(model_save_folder, exist_ok=True)
 model_save_path = model_save_folder + f"/best_model_checkpoint.pth"
 
-# Set up logging
 log_filename = model_save_folder + "/training.log"
 logging.basicConfig(
     level=logging.INFO,
@@ -293,29 +291,3 @@ torch.save({
     'model_state_dict': model.state_dict(),
     'log_history': log_history
 }, model_save_folder + f"/final_model_checkpoint.pth")
-
-logging.info("Training completed.")
-
-
-# -------------------------------------------------
-# model loading example:
-# # Path to the saved checkpoint
-# model_save_path = "best_model_checkpoint.pth"
-
-# # Load the checkpoint
-# checkpoint = torch.load(model_save_path)
-
-# # Retrieve the saved log history
-# log_history = checkpoint['log_history']
-
-# # Restore the model state
-# model.load_state_dict(checkpoint['model_state_dict'])
-
-# logging.info("Model and log history loaded successfully.")
-
-# # Now you can access the log history
-# train_loss_history = log_history['train_loss']
-# eval_loss_history = log_history['eval_loss']
-
-# logging.info("Train loss history:", train_loss_history)
-# logging.info("Eval loss history:", eval_loss_history)
