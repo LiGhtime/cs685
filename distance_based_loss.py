@@ -210,7 +210,7 @@ logging.basicConfig(
 )
 
 # Early stopping parameters
-patience = 10  # Number of evaluation steps to wait for improvement
+patience = 5  # Number of evaluation steps to wait for improvement
 best_val_loss = float('inf')
 patience_counter = 0
 
