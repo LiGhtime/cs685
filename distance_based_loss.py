@@ -119,7 +119,7 @@ def embedding_distance_loss_with_l2(predicted_emb, ground_truth_emb, model, l2_l
     cosine_sim = F.cosine_similarity(predicted_emb, ground_truth_emb, dim=-1)
     # converting similarity to a loss (minimizing negative similarity)
     cosine_sim_loss = 1 - cosine_sim.mean()
-    l2_reg = sum(param.pow(2.0).sum() for param in model.parameters())
+    l2_reg = sum(param.pow(2.0).sum() for param in model.lm_head.parameters())
     # total loss
     loss = cosine_sim_loss + l2_lambda * l2_reg
     
