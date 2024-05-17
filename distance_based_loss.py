@@ -1,5 +1,7 @@
 import json
 from datetime import datetime
+import os
+import logging
 
 from tqdm import tqdm
 
@@ -20,7 +22,11 @@ from unsloth import FastLanguageModel
 # read the tokenized data
 tokenized_train_dataset = load_from_disk('./data/gemma_chat_train_predict_emb_task_fixed_empty_string_filter_tokenized')
 tokenized_eval_dataset = load_from_disk('./data/gemma_chat_eval_predict_emb_task_fixed_empty_string_filter_tokenized')
-tokenized_test_dataset = load_from_disk('./data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter_tokenized')
+# tokenized_test_dataset = load_from_disk('./data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter_tokenized')
+
+# take first 10 of train, first 5 of eval, first 5 of test for quick testing
+tokenized_train_dataset = tokenized_train_dataset.select(range(12))
+tokenized_eval_dataset = tokenized_eval_dataset.select(range(4))
 
 hyper_params = {
     # Model hyperparameters
@@ -189,7 +195,21 @@ log_history = {
 
 # Single checkpoint path
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-model_save_path = f"outputs/best_model_checkpoint_{current_time}.pth"
+model_save_folder = f"outputs" + f"/distance_based_loss_checkpoint_{current_time}"
+# make the directory if it doesn't exist
+os.makedirs(model_save_folder, exist_ok=True)
+model_save_path = model_save_folder + f"/best_model_checkpoint.pth"
+
+# Set up logging
+log_filename = model_save_folder + "/training.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_filename),
+        logging.StreamHandler()  # Remove this line if you don't want to print to console
+    ]
+)
 
 # Early stopping parameters
 patience = 10  # Number of evaluation steps to wait for improvement
@@ -216,16 +236,15 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         
-        
         log_history["train_loss"].append((global_step, loss.item()))
-        # print(f'Step [{global_step}/{total_train_steps}], Train Loss: {loss.item():.4f}')
+        logging.info(f'Step [{global_step}/{total_train_steps}], Train Loss: {loss.item():.4f}')
         progress_bar.set_postfix(train_loss=loss.item())
         
         # Log every num_eval_log_steps steps
         if global_step % num_eval_log_steps == 0:
             avg_val_loss = evaluate(model, val_loader, device, l2_lambda)
             log_history["eval_loss"].append((global_step, avg_val_loss))
-            print(f'Step [{global_step}/{total_train_steps}], Val Loss: {avg_val_loss:.4f}')
+            logging.info(f'Step [{global_step}/{total_train_steps}], Val Loss: {avg_val_loss:.4f}')
 
             # Early stopping logic
             if avg_val_loss < best_val_loss:
@@ -239,7 +258,7 @@ for epoch in range(num_epochs):
                 #     'model_state_dict': model.state_dict(),
                 #     'log_history': log_history
                 # }, model_save_path)
-                # print(f"Model and log history saved at step {global_step} (epoch {epoch}) with validation loss {avg_val_loss:.4f}")
+                # logging.info(f"Model and log history saved at step {global_step} (epoch {epoch}) with validation loss {avg_val_loss:.4f}")
 
                 # # Track saved checkpoints and remove the oldest if necessary
                 # saved_checkpoints.append(model_save_path)
@@ -251,12 +270,12 @@ for epoch in range(num_epochs):
                     'model_state_dict': model.state_dict(),
                     'log_history': log_history
                 }, model_save_path)
-                print(f"Model and log history saved at step {global_step} (epoch {epoch}) with validation loss {avg_val_loss:.4f}")                
+                logging.info(f"Model and log history saved at step {global_step} (epoch {epoch}) with validation loss {avg_val_loss:.4f}")                
             else:
                 patience_counter += 1
             
             if patience_counter >= patience:
-                print("Early stopping triggered.")
+                logging.info("Early stopping triggered.")
                 break
             
         global_step += 1
@@ -267,9 +286,15 @@ for epoch in range(num_epochs):
     avg_train_loss = sum(loss for _, loss in log_history["train_loss"][-num_train_steps_per_epoch:]) / num_train_steps_per_epoch
     avg_val_loss = evaluate(model, val_loader, device, l2_lambda)
     
-    print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}')
+    logging.info(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}')
 
-print("Training completed.")
+# save the final model
+torch.save({
+    'model_state_dict': model.state_dict(),
+    'log_history': log_history
+}, model_save_folder + f"/final_model_checkpoint.pth")
+
+logging.info("Training completed.")
 
 
 # -------------------------------------------------
@@ -286,11 +311,11 @@ print("Training completed.")
 # # Restore the model state
 # model.load_state_dict(checkpoint['model_state_dict'])
 
-# print("Model and log history loaded successfully.")
+# logging.info("Model and log history loaded successfully.")
 
 # # Now you can access the log history
 # train_loss_history = log_history['train_loss']
 # eval_loss_history = log_history['eval_loss']
 
-# print("Train loss history:", train_loss_history)
-# print("Eval loss history:", eval_loss_history)
+# logging.info("Train loss history:", train_loss_history)
+# logging.info("Eval loss history:", eval_loss_history)
