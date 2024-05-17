@@ -9,3 +9,6 @@ data/gemma_chat_train_fixed
 data/gemma_chat_eval_fixed
 data/meta_Movies_and_TV*
 data/encoding_*
+outputs/*merged_16bit*
+data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter
+data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter_tokenized
