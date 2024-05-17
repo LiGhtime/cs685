@@ -180,7 +180,7 @@ def evaluate(model, val_loader, device, l2_lambda):
     return avg_loss
 
 # Training loop
-num_eval_log_steps = 100
+num_eval_log_steps = 50
 
 # Log history dictionary
 log_history = {
@@ -210,7 +210,7 @@ logging.basicConfig(
 )
 
 # Early stopping parameters
-patience = 5  # Number of evaluation steps to wait for improvement
+patience = 7  # Number of evaluation steps to wait for improvement
 best_val_loss = float('inf')
 patience_counter = 0
 
