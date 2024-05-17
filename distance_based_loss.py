@@ -147,8 +147,8 @@ def collate_fn(batch):
 
     return padded_inputs, padded_ground_truth_embs
 
-train_loader = DataLoader(tokenized_train_dataset.with_format("torch"), batch_size=4, shuffle=True, collate_fn=collate_fn)
-val_loader = DataLoader(tokenized_eval_dataset.with_format("torch"), batch_size=4, shuffle=False, collate_fn=collate_fn)
+train_loader = DataLoader(tokenized_train_dataset.with_format("torch"), batch_size=16, shuffle=True, collate_fn=collate_fn)
+val_loader = DataLoader(tokenized_eval_dataset.with_format("torch"), batch_size=16, shuffle=False, collate_fn=collate_fn)
 
 device = model.device # torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
