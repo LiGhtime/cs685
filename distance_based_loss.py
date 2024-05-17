@@ -1,17 +1,26 @@
-# read huggingface dataset from local
+import json
+from datetime import datetime
+
+from tqdm import tqdm
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import optim, zeros
+from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
+
+from transformers import get_cosine_schedule_with_warmup
+
 from datasets import load_from_disk
 
+from unsloth import FastLanguageModel
+
+# read huggingface dataset from local
 # read the tokenized data
 tokenized_train_dataset = load_from_disk('./data/gemma_chat_train_predict_emb_task_fixed_empty_string_filter_tokenized')
 tokenized_eval_dataset = load_from_disk('./data/gemma_chat_eval_predict_emb_task_fixed_empty_string_filter_tokenized')
 tokenized_test_dataset = load_from_disk('./data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter_tokenized')
-
-import json
-from datetime import datetime
-
-import torch
-from datasets import load_from_disk
-from unsloth import FastLanguageModel
 
 hyper_params = {
     # Model hyperparameters
@@ -54,10 +63,7 @@ model, tokenizer= FastLanguageModel.from_pretrained(
     max_seq_length = hyper_params["max_seq_length"],
     dtype = hyper_params["dtype"],
     load_in_4bit = hyper_params["load_in_4bit"],
-    )
-
-import torch
-import torch.nn as nn
+)
 
 # Assume `model` is your pre-trained model
 # Freeze all layers
@@ -101,9 +107,6 @@ for param in model.lm_head.parameters():
     param.requires_grad = True
     
 # define customized loss function
-import torch
-import torch.nn.functional as F
-
 # 1. embedding distance loss with L2 regularization
 def embedding_distance_loss_with_l2(predicted_emb, ground_truth_emb, model, l2_lambda=0.01):
     # cosine similarity loss
@@ -127,8 +130,6 @@ def triplet_loss(anchor, positive, negative, margin=1.0):
     
     return loss.mean()
 
-from torch.nn.utils.rnn import pad_sequence
-
 def collate_fn(batch):
     inputs = [item['input'][0] for item in batch]
     ground_truth_embs = [item['output'] for item in batch]
@@ -141,14 +142,10 @@ def collate_fn(batch):
 
     return padded_inputs, padded_ground_truth_embs
 
-import torch
-from torch import nn, optim, zeros
-from torch.utils.data import DataLoader
-from transformers import get_cosine_schedule_with_warmup
-
 train_loader = DataLoader(tokenized_train_dataset.with_format("torch"), batch_size=4, shuffle=True, collate_fn=collate_fn)
 val_loader = DataLoader(tokenized_eval_dataset.with_format("torch"), batch_size=4, shuffle=False, collate_fn=collate_fn)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+device = model.device # torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
@@ -165,12 +162,12 @@ def evaluate(model, val_loader, device, l2_lambda):
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
-        for inputs, ground_truth_embs in val_loader:
+        for inputs, ground_truth_embs in tqdm(val_loader, desc="Evaluating", leave=False):
             input_tensors = inputs.to(device)
             ground_truth_embs = ground_truth_embs.to(device)
             
             predicted_embs = model(input_tensors)
-            loss = embedding_distance_loss_with_l2(predicted_embs, ground_truth_embs, model, l2_lambda)
+            loss = embedding_distance_loss_with_l2(predicted_embs.logits, ground_truth_embs, model, l2_lambda)
             
             total_loss += loss.item()
     
@@ -178,10 +175,32 @@ def evaluate(model, val_loader, device, l2_lambda):
     return avg_loss
 
 # Training loop
+num_eval_log_steps = 100
+
+# Log history dictionary
+log_history = {
+    "train_loss": [],
+    "eval_loss": []
+}
+
+# # List to keep track of saved checkpoints
+# saved_checkpoints = []
+# max_checkpoints = 5
+
+# Single checkpoint path
+current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+model_save_path = f"outputs/best_model_checkpoint_{current_time}.pth"
+
+# Early stopping parameters
+patience = 10  # Number of evaluation steps to wait for improvement
+best_val_loss = float('inf')
+patience_counter = 0
+
+global_step = 0
 for epoch in range(num_epochs):
     model.train()
-    total_loss = 0.0
-    for inputs, ground_truth_embs in train_loader:  # each batch contains a tuple (inputs, ground_truth_emb)
+    progress_bar = tqdm(enumerate(train_loader), total=len(train_loader), desc=f"Epoch {epoch+1}/{num_epochs}")
+    for step, (inputs, ground_truth_embs) in progress_bar:  # each batch contains a tuple (inputs, ground_truth_emb)
         input_tensors = inputs.to(device)
         ground_truth_emb = ground_truth_embs.to(device)
         
@@ -197,14 +216,81 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         
-        total_loss += loss.item()
+        
+        log_history["train_loss"].append((global_step, loss.item()))
+        # print(f'Step [{global_step}/{total_train_steps}], Train Loss: {loss.item():.4f}')
+        progress_bar.set_postfix(train_loss=loss.item())
+        
+        # Log every num_eval_log_steps steps
+        if global_step % num_eval_log_steps == 0:
+            avg_val_loss = evaluate(model, val_loader, device, l2_lambda)
+            log_history["eval_loss"].append((global_step, avg_val_loss))
+            print(f'Step [{global_step}/{total_train_steps}], Val Loss: {avg_val_loss:.4f}')
+
+            # Early stopping logic
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                patience_counter = 0
+                
+                # # Save the model and log history
+                # current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+                # model_save_path = f"outputs/best_model_checkpoint_epoch_{epoch}_step_{global_step}_{current_time}.pth"
+                # torch.save({
+                #     'model_state_dict': model.state_dict(),
+                #     'log_history': log_history
+                # }, model_save_path)
+                # print(f"Model and log history saved at step {global_step} (epoch {epoch}) with validation loss {avg_val_loss:.4f}")
+
+                # # Track saved checkpoints and remove the oldest if necessary
+                # saved_checkpoints.append(model_save_path)
+                # if len(saved_checkpoints) > max_checkpoints:
+                #     os.remove(saved_checkpoints.pop(0))
+                
+                # Save the model and log history, overiding the previous checkpoint
+                torch.save({
+                    'model_state_dict': model.state_dict(),
+                    'log_history': log_history
+                }, model_save_path)
+                print(f"Model and log history saved at step {global_step} (epoch {epoch}) with validation loss {avg_val_loss:.4f}")                
+            else:
+                patience_counter += 1
+            
+            if patience_counter >= patience:
+                print("Early stopping triggered.")
+                break
+            
+        global_step += 1
     
     # Step the scheduler
     scheduler.step()
     
-    avg_train_loss = total_loss / len(train_loader)
+    avg_train_loss = sum(loss for _, loss in log_history["train_loss"][-num_train_steps_per_epoch:]) / num_train_steps_per_epoch
     avg_val_loss = evaluate(model, val_loader, device, l2_lambda)
     
     print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}')
 
 print("Training completed.")
+
+
+# -------------------------------------------------
+# model loading example:
+# # Path to the saved checkpoint
+# model_save_path = "best_model_checkpoint.pth"
+
+# # Load the checkpoint
+# checkpoint = torch.load(model_save_path)
+
+# # Retrieve the saved log history
+# log_history = checkpoint['log_history']
+
+# # Restore the model state
+# model.load_state_dict(checkpoint['model_state_dict'])
+
+# print("Model and log history loaded successfully.")
+
+# # Now you can access the log history
+# train_loss_history = log_history['train_loss']
+# eval_loss_history = log_history['eval_loss']
+
+# print("Train loss history:", train_loss_history)
+# print("Eval loss history:", eval_loss_history)
