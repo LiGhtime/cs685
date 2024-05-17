@@ -25,7 +25,7 @@ tokenized_eval_dataset = load_from_disk('./data/gemma_chat_eval_predict_emb_task
 # tokenized_test_dataset = load_from_disk('./data/gemma_chat_test_predict_emb_task_fixed_empty_string_filter_tokenized')
 
 # # take first 10 of train, first 5 of eval, first 5 of test for quick testing
-# tokenized_train_dataset = tokenized_train_dataset.select(range(12))
+# tokenized_train_dataset = tokenized_train_dataset.select(range(500))
 # tokenized_eval_dataset = tokenized_eval_dataset.select(range(4))
 
 hyper_params = {
@@ -82,8 +82,13 @@ class MultiheadAttentionLayer(nn.Module):
         super(MultiheadAttentionLayer, self).__init__()
         self.input_linear = nn.Linear(embed_dim, internal_dim)
         self.gelu_1 = nn.GELU()
+        
+        self.query_proj = nn.Linear(internal_dim, internal_dim)
+        self.key_proj = nn.Linear(internal_dim, internal_dim)
+        self.value_proj = nn.Linear(internal_dim, internal_dim)
         self.multihead_attn = nn.MultiheadAttention(internal_dim, num_heads)
         self.layer_norm = nn.LayerNorm(internal_dim)
+        
         # self.dropout = nn.Dropout(0.1)
         self.output_linear = nn.Linear(internal_dim, output_dim)
         # self.gelu = nn.GELU()
@@ -93,7 +98,11 @@ class MultiheadAttentionLayer(nn.Module):
         # Assuming `x` shape is (seq_len, batch_size, embed_dim)
         x = self.input_linear(x)
         x = self.gelu_1(x)
-        attn_output, _ = self.multihead_attn(x, x, x)
+        
+        q = self.query_proj(x)
+        k = self.key_proj(x)
+        v = self.value_proj(x)
+        attn_output, _ = self.multihead_attn(q, k, v)
         attn_output = self.layer_norm(attn_output + x)
         # attn_output = self.dropout(attn_output)
 
@@ -103,7 +112,7 @@ class MultiheadAttentionLayer(nn.Module):
 
 # Replace the last layer with the new multi-head attention layer
 embed_dim = 2048
-internal_dim = 1024
+internal_dim = 768 # 1024
 output_dim = 768
 num_heads = 4  # Choose the number of attention heads
 model.lm_head = MultiheadAttentionLayer(embed_dim, internal_dim, output_dim, num_heads).to(model.device)
@@ -152,15 +161,15 @@ val_loader = DataLoader(tokenized_eval_dataset.with_format("torch"), batch_size=
 
 device = model.device # torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+optimizer = optim.AdamW(model.parameters(), lr=0.0008, weight_decay=0.001)
 
 # Scheduler with warmup
 num_train_steps_per_epoch = len(train_loader)
-num_epochs = 1
+num_epochs = 2
 total_train_steps = num_train_steps_per_epoch * num_epochs
-scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=25, num_training_steps=total_train_steps, num_cycles=2)
+scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=10, num_training_steps=total_train_steps, num_cycles=4)
 
-l2_lambda = 0.01  # L2 regularization weight
+l2_lambda = 0.0004  # L2 regularization weight
 
 # Evaluation function
 def evaluate(model, val_loader, device, l2_lambda):
