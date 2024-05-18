@@ -15,17 +15,19 @@ hyper_params = {
     "load_in_4bit": True, # Use 4bit quantization to reduce memory usage. Can be False.
     "json_file_asins": './data/asins_small.json', # None or './data/asins_small.json' or './data/meta_asins.json'
     # "eval_dataset_path": "./data/gemma_chat_eval_no_user_intention_fixed_empty_string_filter",
-    # "eval_dataset_path": "./data/gemma_chat_eval_w_desc_task_fixed_empty_string_filter",
-    "eval_dataset_path": "./data/gemma_chat_eval_wo_desc_task_fixed_empty_string_filter",
-    "constraint_flag": True,
-    # "model_name": "unsloth/gem|ma-2b-it-bnb-4bit",
+    "eval_dataset_path": "./data/gemma_chat_eval_w_desc_task_fixed_empty_string_filter",
+    # "eval_dataset_path": "./data/gemma_chat_eval_wo_desc_task_fixed_empty_string_filter",
+    # "eval_dataset_path": "./data/gemma_chat_eval_fixed_empty_string_filter",
+    "constraint_flag": False,
+    # "model_name": "unsloth/gemma-2b-it-bnb-4bit",
     # "model_name": "outputs/checkpoint-1000",
     # "model_name": "outputs/model_04242024_090830/",
     # "model_name": "outputs/model_04242024_150533",
     # "model_name": "outputs/model_04252024_034847",
+    # "model_name": "outputs/model_05152024_105402", # best model
     # "model_name": "outputs/model_05162024_022532", # fixed empty description issue in training data, no user intention two task model
-    # "model_name": "outputs/model_05162024_053537", # gemma_chat_train_w_desc_task_fixed_empty_string_filter
-    "model_name": "outputs/model_05162024_080541", # gemma_chat_train_wo_desc_task_fixed_empty_string_filter
+    "model_name": "outputs/model_05162024_053537", # gemma_chat_train_w_desc_task_fixed_empty_string_filter
+    # "model_name": "outputs/model_05162024_080541", # gemma_chat_train_wo_desc_task_fixed_empty_string_filter
     "early_stopping": True,
     "num_beams_parameter": 5,
     "max_new_tokens": 70,
@@ -50,7 +52,7 @@ dataset_eval = load_from_disk(hyper_params["eval_dataset_path"])
 print("Loaded eval dataset from {}".format(hyper_params["eval_dataset_path"]))
 # # take the first 10 rows just for testing
 # dataset_eval = dataset_eval.select(range(2))
-        
+
 prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}"
 
 # initialize the results dict
@@ -97,7 +99,6 @@ for index_i in tqdm(range(dataset_eval.num_rows)):
     # transform the input sequence if needed
     if input_seq.endswith("title and description."):
         input_seq = "".join(dataset_eval[index_i]['input'].split("\n")[:-1]) + "Please infer the user's preference based on historical purchases and reviews along with the user's intention, and then recommend an item for this user. Please just give the title of the recommended item."
-
 
     inputs = tokenizer(
     [
