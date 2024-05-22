@@ -7,7 +7,7 @@ conda activate unsloth_env
 
 conda install pytorch-cuda=12.1 pytorch cudatoolkit xformers -c pytorch -c nvidia -c xformers
 
-conda install jupyter
+conda install jupyter matplotlib
 
 pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
 
