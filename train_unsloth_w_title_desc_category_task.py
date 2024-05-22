@@ -71,7 +71,7 @@ dataset_train = load_from_disk(hyper_params['dataset_train_path'])
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
 
-prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}"
+prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}<end_of_turn>\n"
 
 def formatting_prompts_func(examples):
     inputs = examples["input"]

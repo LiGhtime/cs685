@@ -53,7 +53,7 @@ print("Loaded eval dataset from {}".format(hyper_params["eval_dataset_path"]))
 # # take the first 10 rows just for testing
 # dataset_eval = dataset_eval.select(range(2))
 
-prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}"
+prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}<end_of_turn>\n"
 
 # initialize the results dict
 results = {}

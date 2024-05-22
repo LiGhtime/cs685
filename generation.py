@@ -32,7 +32,7 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 )
 FastLanguageModel.for_inference(model) # Enable native 2x faster inference
         
-prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}"
+prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}<end_of_turn>\n"
 
 # input = dataset_eval[index_i]['input']
 # input = dataset_eval[index_i]['input'] + "\n Please also explain yourself in one sentence or two, why the user might be interested in your recommended item."

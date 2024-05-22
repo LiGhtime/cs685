@@ -68,7 +68,7 @@ encoding_title_to_desc_task = load_from_disk(hyper_params["encoding_title_to_des
 
 EOS_TOKEN = tokenizer.eos_token # Must add EOS_TOKEN
 
-prompt_template = prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}"
+prompt_template = "<start_of_turn>user\n{}<end_of_turn>\n<start_of_turn>model\n{}<end_of_turn>\n"
 
 def formatting_prompts_func(examples):
     inputs = examples["input"]
